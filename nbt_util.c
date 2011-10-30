@@ -110,9 +110,9 @@ bool nbt_eq(const nbt_node* restrict a, const nbt_node* restrict b)
     case TAG_LIST:
     case TAG_COMPOUND:
     {
-        struct list_head *ai, *bi;
-        struct nbt_list* alist = a->type == TAG_LIST ? a->payload.tag_list : a->payload.tag_compound;
-        struct nbt_list* blist = b->type == TAG_LIST ? b->payload.tag_list : b->payload.tag_compound;
+        list_head *ai, *bi;
+        nbt_list* alist = a->type == TAG_LIST ? a->payload.tag_list : a->payload.tag_compound;
+        nbt_list* blist = b->type == TAG_LIST ? b->payload.tag_list : b->payload.tag_compound;
 
         for(ai = alist->entry.flink, bi = blist->entry.flink;
             ai != &alist->entry &&   bi != &blist->entry;

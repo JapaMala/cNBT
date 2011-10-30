@@ -14,7 +14,9 @@
 
 #include <assert.h>
 #include <errno.h>
+#ifndef __cplusplus
 #include <inttypes.h>
+#endif
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -30,7 +32,7 @@ static inline int little_endian()
 
 static inline void* swap_bytes(void* s, size_t len)
 {
-    for(char* b = s,
+    for(char* b = (char *)s,
             * e = b + len - 1;
         b < e;
         b++, e--)
@@ -71,8 +73,8 @@ static inline const void* swapped_memscan(void* dest, const void* src, size_t n)
     return be2ne(dest, n), ret;
 }
 
-#define CHECKED_MALLOC(var, n, on_error) do { \
-    if((var = malloc(n)) == NULL)             \
+#define CHECKED_MALLOC(var, n, type, on_error) do { \
+    if((var = (type)malloc(n)) == NULL)             \
     {                                         \
         errno = NBT_EMEM;                     \
         on_error;                             \
@@ -109,7 +111,7 @@ static inline void bprintf(struct buffer* b, const char* restrict format, ...)
     siz = vsnprintf(NULL, 0, format, args) + 1;
     va_end(args);
 
-    char* buf = malloc(siz);
+    char* buf = (char *)malloc(siz);
 
     va_start(args, format);
     vsnprintf(buf, siz, format, args);
@@ -127,13 +129,13 @@ static inline char* read_string(const char** memory, size_t* length)
 {
     int16_t string_length;
     char* ret = NULL;
-
+     
     READ_GENERIC(&string_length, sizeof string_length, swapped_memscan, goto parse_error);
 
     if(string_length < 0)               goto parse_error;
     if(*length < (size_t)string_length) goto parse_error;
 
-    CHECKED_MALLOC(ret, string_length + 1, goto parse_error);
+    CHECKED_MALLOC(ret, string_length + 1, char *, goto parse_error);
 
     READ_GENERIC(ret, (size_t)string_length, memscan, goto parse_error);
 
@@ -157,7 +159,7 @@ static inline struct nbt_byte_array read_byte_array(const char** memory, size_t*
 
     if(ret.length < 0) goto parse_error;
 
-    CHECKED_MALLOC(ret.data, ret.length, goto parse_error);
+    CHECKED_MALLOC(ret.data, ret.length, unsigned char *, goto parse_error);
 
     READ_GENERIC(ret.data, (size_t)ret.length, memscan, goto parse_error);
 

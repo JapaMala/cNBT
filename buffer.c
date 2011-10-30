@@ -28,11 +28,9 @@ static int lazy_init(struct buffer* b)
 
     size_t cap = 1024;
 
-    *b = (struct buffer) {
-        .data = malloc(cap),
-        .len  = 0,
-        .cap  = cap
-    };
+    b->data = (unsigned char *)malloc(cap);
+    b->len  = 0;
+    b->cap  = cap;
 
     if(unlikely(b->data == NULL))
         return 1;
@@ -65,7 +63,7 @@ int buffer_reserve(struct buffer* b, size_t reserved_amount)
     while(b->cap < reserved_amount)
         b->cap *= 2;
 
-    unsigned char* temp = realloc(b->data, b->cap);
+    unsigned char* temp = (unsigned char *)realloc(b->data, b->cap);
 
     if(unlikely(temp == NULL))
         return buffer_free(b), 1;

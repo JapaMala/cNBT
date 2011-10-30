@@ -17,15 +17,15 @@
 /* strdup isn't standard. GNU extension. */
 static inline char* __strdup(const char* s)
 {
-    char* r = malloc(strlen(s) + 1);
+    char* r = (char *)malloc(strlen(s) + 1);
     if(r == NULL) return NULL;
 
     strcpy(r, s);
     return r;
 }
 
-#define CHECKED_MALLOC(var, n, on_error) do { \
-    if((var = malloc(n)) == NULL)             \
+#define CHECKED_MALLOC(var, n, type, on_error) do { \
+    if((var = (type)malloc(n)) == NULL)             \
     {                                         \
         errno = NBT_EMEM;                     \
         on_error;                             \
@@ -37,8 +37,8 @@ void nbt_free_list(struct nbt_list* list)
     if (!list)
         return;
 
-    struct list_head* current;
-    struct list_head* temp;
+    list_head* current;
+    list_head* temp;
     list_for_each_safe(current, temp, &list->entry)
     {
         struct nbt_list* entry = list_entry(current, struct nbt_list, entry);
@@ -76,8 +76,8 @@ static struct nbt_list* clone_list(struct nbt_list* list)
     /* even empty lists are valid pointers! */
     assert(list);
 
-    struct nbt_list* ret;
-    CHECKED_MALLOC(ret, sizeof *ret, goto clone_error);
+    nbt_list* ret;
+    CHECKED_MALLOC(ret, sizeof *ret, nbt_list *, goto clone_error);
 
     INIT_LIST_HEAD(&ret->entry);
 
@@ -85,27 +85,27 @@ static struct nbt_list* clone_list(struct nbt_list* list)
 
     if(list->data != NULL)
     {
-        CHECKED_MALLOC(ret->data, sizeof *ret->data, goto clone_error);
+        CHECKED_MALLOC(ret->data, sizeof *ret->data, nbt_node *, goto clone_error);
         ret->data->type = list->data->type;
     }
 
     struct list_head* pos;
     list_for_each(pos, &list->entry)
     {
-        struct nbt_list* current = list_entry(pos, struct nbt_list, entry);
-        struct nbt_list* new;
+        nbt_list* current = list_entry(pos, struct nbt_list, entry);
+        nbt_list* newlist;
 
-        CHECKED_MALLOC(new, sizeof *new, goto clone_error);
+        CHECKED_MALLOC(newlist, sizeof *newlist, nbt_list *, goto clone_error);
 
-        new->data = nbt_clone(current->data);
+        newlist->data = nbt_clone(current->data);
 
-        if(new->data == NULL)
+        if(newlist->data == NULL)
         {
-            free(new);
+            free(newlist);
             goto clone_error;
         }
 
-        list_add_tail(&new->entry, &ret->entry);
+        list_add_tail(&newlist->entry, &ret->entry);
     }
 
     return ret;
@@ -127,7 +127,7 @@ nbt_node* nbt_clone(nbt_node* tree)
     assert(tree->type != TAG_INVALID);
 
     nbt_node* ret;
-    CHECKED_MALLOC(ret, sizeof *ret, return NULL);
+    CHECKED_MALLOC(ret, sizeof *ret, nbt_node *, return NULL);
 
     ret->type = tree->type;
     ret->name = safe_strdup(tree->name);
@@ -143,7 +143,7 @@ nbt_node* nbt_clone(nbt_node* tree)
     else if(tree->type == TAG_BYTE_ARRAY)
     {
         unsigned char* newbuf;
-        CHECKED_MALLOC(newbuf, tree->payload.tag_byte_array.length, goto clone_error);
+        CHECKED_MALLOC(newbuf, tree->payload.tag_byte_array.length, unsigned char *, goto clone_error);
 
         memcpy(newbuf,
                tree->payload.tag_byte_array.data,
@@ -212,7 +212,7 @@ static struct nbt_list* filter_list(const struct nbt_list* list, nbt_predicate_t
     assert(list);
 
     struct nbt_list* ret;
-    CHECKED_MALLOC(ret, sizeof *ret, goto filter_error);
+    CHECKED_MALLOC(ret, sizeof *ret, nbt_list *, goto filter_error);
 
     ret->data = NULL;
     INIT_LIST_HEAD(&ret->entry);
@@ -228,7 +228,7 @@ static struct nbt_list* filter_list(const struct nbt_list* list, nbt_predicate_t
         if(new_node == NULL) continue;
 
         struct nbt_list* new_entry;
-        CHECKED_MALLOC(new_entry, sizeof *new_entry, goto filter_error);
+        CHECKED_MALLOC(new_entry, sizeof *new_entry, nbt_list *, goto filter_error);
 
         new_entry->data = new_node;
         list_add_tail(&new_entry->entry, &ret->entry);
@@ -254,7 +254,7 @@ nbt_node* nbt_filter(const nbt_node* tree, nbt_predicate_t filter, void* aux)
     if(!filter(tree, aux)) return NULL;
 
     nbt_node* ret;
-    CHECKED_MALLOC(ret, sizeof *ret, goto filter_error);
+    CHECKED_MALLOC(ret, sizeof *ret, nbt_node *, goto filter_error);
 
     ret->type = tree->type;
     ret->name = safe_strdup(tree->name);
@@ -271,6 +271,7 @@ nbt_node* nbt_filter(const nbt_node* tree, nbt_predicate_t filter, void* aux)
     {
         CHECKED_MALLOC(ret->payload.tag_byte_array.data,
                        tree->payload.tag_byte_array.length,
+                       unsigned char *,
                        goto filter_error);
 
         memcpy(ret->payload.tag_byte_array.data,
@@ -361,7 +362,7 @@ nbt_node* nbt_find(nbt_node* tree, nbt_predicate_t predicate, void* aux)
 
 static bool names_are_equal(const nbt_node* node, void* vname)
 {
-    const char* name = vname;
+    const char* name = (const char *)vname;
 
     assert(node);
 

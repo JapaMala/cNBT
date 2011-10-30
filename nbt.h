@@ -9,11 +9,15 @@
 #define NBT_H
 
 #ifdef __cplusplus
+#if _MSC_VER
+#define restrict
+#else
 #define restrict __restrict__
+#endif
 extern "C" {
 #endif
 
-#include <stdbool.h>
+#include "stdbool.h"
 #include <stddef.h> /* for size_t */
 #include <stdint.h>
 #include <stdio.h>  /* for FILE* */
@@ -54,6 +58,18 @@ typedef enum {
 
 struct nbt_node;
 
+struct nbt_list 
+{
+    nbt_node* data; /* A single node's data. */
+    list_head entry;
+};
+
+struct nbt_byte_array 
+{
+    unsigned char* data;
+    int32_t length;
+};
+
 /*
  * Represents a single node in the tree. You should switch on `type' and ONLY
  * access the union member it signifies. tag_compound and tag_list contain
@@ -75,10 +91,7 @@ typedef struct nbt_node {
         float   tag_float;
         double  tag_double;
 
-        struct nbt_byte_array {
-            unsigned char* data;
-            int32_t length;
-        } tag_byte_array;
+        nbt_byte_array tag_byte_array;
 
         char* tag_string; /* TODO: technically, this should be a UTF-8 string */
 
@@ -93,11 +106,8 @@ typedef struct nbt_node {
          * For more information on using the linked list, see `list.h'. The API
          * is well documented.
          */
-        struct nbt_list {
-            struct nbt_node* data; /* A single node's data. */
-            struct list_head entry;
-        } * tag_list,
-          * tag_compound;
+        nbt_list * tag_list;
+        nbt_list * tag_compound;
 
         /*
          * The primary difference between a tag_list and a tag_compound is the
@@ -205,7 +215,7 @@ void nbt_free(nbt_node*);
 /*
  * Recursively frees all the elements of a list, and then frees the list itself.
  */
-void nbt_free_list(struct nbt_list*);
+void nbt_free_list(nbt_list* list);
 
 /*
  * A visitor function to traverse the tree. Return true to keep going, false to
