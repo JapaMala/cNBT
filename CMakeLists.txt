@@ -16,7 +16,7 @@ ENDIF()
 # Output paths
 set(EXECUTABLE_OUTPUT_PATH bin)
 
-ADD_LIBRARY(STATIC nbt buffer.c
+ADD_LIBRARY(nbt STATIC buffer.c
   nbt_loading.c
   nbt_parsing.c
   nbt_treeops.c
