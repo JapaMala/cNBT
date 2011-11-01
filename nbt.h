@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-#include "stdbool.h"
+//#include "stdbool.h"
 #include <stddef.h> /* for size_t */
 #include <stdint.h>
 #include <stdio.h>  /* for FILE* */

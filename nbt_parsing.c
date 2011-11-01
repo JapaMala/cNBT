@@ -14,9 +14,7 @@
 
 #include <assert.h>
 #include <errno.h>
-#ifndef __cplusplus
-#include <inttypes.h>
-#endif
+#include "inttypes.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -97,7 +95,7 @@ static nbt_node* parse_unnamed_tag(nbt_type type, char* name, const char** memor
  */
 #define READ_GENERIC(dest, n, scanner, on_failure) do { \
     if(*length < (n)) { on_failure; }                   \
-    *memory = scanner((dest), *memory, (n));            \
+    *memory = (const char *)scanner((dest), *memory, (n));            \
     *length -= (n);                                     \
 } while(0)
 
@@ -213,11 +211,11 @@ static struct nbt_list* read_list(const char** memory, size_t* length)
     int32_t elems;
     struct nbt_list* ret;
 
-    CHECKED_MALLOC(ret, sizeof *ret, goto parse_error);
+    CHECKED_MALLOC(ret, sizeof *ret, nbt_list *, goto parse_error);
 
     /* we allocate the data pointer to store the type of the list in the first
      * sentinel element */
-    CHECKED_MALLOC(ret->data, sizeof *ret->data, goto parse_error);
+    CHECKED_MALLOC(ret->data, sizeof *ret->data, nbt_node *, goto parse_error);
 
     READ_GENERIC(&type, sizeof type, swapped_memscan, goto parse_error);
     READ_GENERIC(&elems, sizeof elems, swapped_memscan, goto parse_error);
@@ -228,19 +226,19 @@ static struct nbt_list* read_list(const char** memory, size_t* length)
 
     for(int32_t i = 0; i < elems; i++)
     {
-        struct nbt_list* new;
+        struct nbt_list* newlist;
 
-        CHECKED_MALLOC(new, sizeof *new, goto parse_error);
+        CHECKED_MALLOC(newlist, sizeof *newlist, nbt_list *, goto parse_error);
 
-        new->data = parse_unnamed_tag((nbt_type)type, NULL, memory, length);
+        newlist->data = parse_unnamed_tag((nbt_type)type, NULL, memory, length);
 
-        if(new->data == NULL)
+        if(newlist->data == NULL)
         {
-            free(new);
+            free(newlist);
             goto parse_error;
         }
 
-        list_add_tail(&new->entry, &ret->entry);
+        list_add_tail(&newlist->entry, &ret->entry);
     }
     
     return ret;
@@ -259,7 +257,7 @@ static struct nbt_list* read_compound(const char** memory, size_t* length)
 {
     struct nbt_list* ret;
 
-    CHECKED_MALLOC(ret, sizeof *ret, goto parse_error);
+    CHECKED_MALLOC(ret, sizeof *ret, nbt_list *, goto parse_error);
 
     ret->data = NULL;
     INIT_LIST_HEAD(&ret->entry);
@@ -277,7 +275,7 @@ static struct nbt_list* read_compound(const char** memory, size_t* length)
         name = read_string(memory, length);
         if(name == NULL) goto parse_error;
 
-        CHECKED_MALLOC(new_entry, sizeof *new_entry,
+        CHECKED_MALLOC(new_entry, sizeof *new_entry, nbt_list *,
             free(name);
             goto parse_error;
         );
@@ -311,7 +309,7 @@ static inline nbt_node* parse_unnamed_tag(nbt_type type, char* name, const char*
 {
     nbt_node* node;
 
-    CHECKED_MALLOC(node, sizeof *node, goto parse_error);
+    CHECKED_MALLOC(node, sizeof *node, nbt_node *, goto parse_error);
 
     node->type = type;
     node->name = name;
@@ -408,13 +406,14 @@ static inline void indent(struct buffer* b, size_t amount)
 {
     size_t spaces = amount * 4; /* 4 spaces per indent */
 
-    char temp[spaces + 1];
+    char * temp = new char[spaces + 1];
 
     for(size_t i = 0; i < spaces; ++i)
         temp[i] = ' ';
     temp[spaces] = '\0';
 
     bprintf(b, "%s", temp);
+    delete[] temp;
 }
 
 static nbt_status __nbt_dump_ascii(const nbt_node*, struct buffer*, size_t ident);
@@ -520,7 +519,7 @@ char* nbt_dump_ascii(const nbt_node* tree)
 
     assert(tree);
 
-    struct buffer b = BUFFER_INIT;
+    buffer b = BUFFER_INIT;
 
     if((errno = __nbt_dump_ascii(tree, &b, 0)) != NBT_OK) goto OOM;
     if(         buffer_reserve(&b, b.len + 1))            goto OOM;
@@ -693,8 +692,11 @@ static inline nbt_status __dump_binary(const nbt_node* tree, bool dump_type, str
 struct buffer nbt_dump_binary(const nbt_node* tree)
 {
     errno = NBT_OK;
-
-    if(tree == NULL) return BUFFER_INIT;
+    if(tree == NULL)
+    {
+        buffer b = BUFFER_INIT;
+        return b;
+    }
 
     struct buffer ret = BUFFER_INIT;
 

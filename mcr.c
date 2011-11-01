@@ -1,31 +1,33 @@
 #include "nbt.h"
-#include <unistd.h>
+#include "unistd.h"
 #include <fcntl.h>
 #include <stdlib.h>
 #include <errno.h>
-#ifdef __WIN32__
+#ifdef _WIN32
 #include <windows.h>
 #include <winsock.h>
 #else
 #include <sys/mman.h>
 #include <netinet/in.h>
 #endif
-#include <libgen.h>
+//#include <libgen.h>
 #include <string.h>
 #include <assert.h>
 
 #define MCR_HEADER_SIZE 8192
+
+struct MCRChunk {
+    uint32_t timestamp;
+    uint32_t len;
+    unsigned char *data; // compression type + data
+};
 
 // private structure
 struct MCR {
     int fd;
     int readonly;
     uint32_t last_timestamp;
-    struct MCRChunk {
-        uint32_t timestamp;
-        uint32_t len;
-        unsigned char *data; // compression type + data
-    } chunk[32][32];
+ MCRChunk chunk[32][32];
 };
 
 int _mcr_read_chunk(MCR *mcr, int x, int z, void *header)
@@ -54,7 +56,7 @@ int _mcr_read_chunk(MCR *mcr, int x, int z, void *header)
     
     // read data
     chunk->len++; // it's weird, but some libs seem to forget one byte
-    chunk->data = malloc(chunk->len);
+    chunk->data = (unsigned char *)malloc(chunk->len);
     if (read(mcr->fd, chunk->data, chunk->len) < chunk->len-1) {
         free(chunk->data);
         chunk->data = NULL;
@@ -80,7 +82,7 @@ struct MCR * mcr_open(const char *path, int mode)
         return NULL;
     }
     
-    struct MCR *mcr = calloc(1, sizeof(struct MCR));
+    struct MCR *mcr = (MCR *)calloc(1, sizeof(struct MCR));
     if (mcr == NULL) return NULL;
     void *header = NULL;
     
@@ -126,8 +128,8 @@ int mcr_close(MCR *mcr)
     
     if (!mcr->readonly) {
         // write file
-        chunkLoc = calloc(1024, 4);
-        chunkTime = calloc(1024, 4);
+        chunkLoc = (uint32_t *)calloc(1024, 4);
+        chunkTime = (uint32_t *)calloc(1024, 4);
         empty = calloc(4096, 1);
         
         // write chunks
@@ -152,7 +154,7 @@ int mcr_close(MCR *mcr)
             if (chunk->len != write(mcr->fd, chunk->data, chunk->len)) goto err;
 
             // write filling
-            ssize_t fill = 4096-((chunk->len+4)%4096);
+            ptrdiff_t fill = 4096-((chunk->len+4)%4096);
             if (write(mcr->fd, empty, fill) != fill) goto err;
             assert(lseek(mcr->fd, 0, SEEK_CUR) == (off_t)((chunkOffsetBlocks + chunkLenBlocks)*4096));
         }
@@ -213,7 +215,7 @@ int mcr_chunk_set(MCR *mcr, int x, int z, nbt_node *root)
         // compress chunk
         struct buffer compressed = nbt_dump_compressed(root, STRAT_INFLATE);
         chunk->len = compressed.len+1;
-        uint8_t *data = malloc(chunk->len);
+        uint8_t *data = (uint8_t*)malloc(chunk->len);
         if (data == NULL) {
             buffer_free(&compressed);
             return -1;

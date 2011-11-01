@@ -7,8 +7,9 @@
  * Represents a single entry in the list. This must be embedded in your linked
  * structure.
  */
-struct list_head {
-    struct list_head *blink, /* back  link */
+struct list_head
+{
+    list_head *blink, /* back  link */
                      *flink; /* front link */
 };
 
@@ -17,8 +18,8 @@ struct list_head {
 
 /* Adds a new element to the beginning of a list. Returns the head of the list
  * so that calls may be chained. */
-static inline struct list_head* list_add_head(struct list_head* __restrict new_element,
-                                              struct list_head* __restrict head)
+static inline list_head* list_add_head(list_head* new_element,
+                                              list_head* head)
 {
     new_element->flink = head->flink;
     new_element->blink = head;
@@ -31,8 +32,8 @@ static inline struct list_head* list_add_head(struct list_head* __restrict new_e
 
 /* Adds a new element to the end of a list. Returns the head of the list so that
  * calls may be chained. */
-static inline struct list_head* list_add_tail(struct list_head* __restrict new_element,
-                                              struct list_head* __restrict head)
+static inline list_head* list_add_tail(list_head* new_element,
+                                              list_head* head)
 {
     new_element->flink = head;
     new_element->blink = head->blink;
@@ -44,7 +45,7 @@ static inline struct list_head* list_add_tail(struct list_head* __restrict new_e
 }
 
 /* Deletes an element from a list. NOTE: This does not free any memory. */
-static inline void list_del(struct list_head* loc)
+static inline void list_del(list_head* loc)
 {
     loc->flink->blink = loc->blink;
     loc->blink->flink = loc->flink;
